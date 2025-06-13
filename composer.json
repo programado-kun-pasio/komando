@@ -1,0 +1,28 @@
+{
+    "name": "programado/comando",
+    "description": "A package filled with programado related laravel utilities.",
+    "type": "laravel-package",
+    "require": {
+        "php": ">=8.4",
+        "laravel/framework": "^12.18",
+        "spatie/ssh": "^1.13"
+    },
+    "autoload": {
+        "psr-4": {
+            "Programado\\Komando\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Friedrich Waack",
+            "email": "friedrich.waack@programado.de"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Programado\\Komando\\Providers\\KomandoServiceProvider"
+            ]
+        }
+    }
+}
