@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Process;
 
 class SyncDatabaseCommand extends Command
 {
-    protected $signature = 'komando:sync:database {ssh-host : The SSH host of the source system} {ssh-user=app : The SSH user of the source system} {db-connections=mysql : The local database connection names (comma seperated) to sync}';
+    protected $signature = 'komando:sync:database {--ssh-host : The SSH host of the source system} {--ssh-user=app : The SSH user of the source system} {--db-connections=mysql : The local database connection names (comma seperated) to sync}';
 
     protected $description = 'Fetches the DB from remote and syncs it with the local db';
 
@@ -26,7 +26,7 @@ class SyncDatabaseCommand extends Command
             return;
         }
 
-        $connections = explode(',', $this->argument('db-connections'));
+        $connections = explode(',', $this->option('db-connections'));
 
         foreach ($connections as $connection) {
             $this->info("Starting database sync for: {$connection}");
@@ -53,7 +53,7 @@ class SyncDatabaseCommand extends Command
 
         // Copy dump locally
         $this->info("Copying {$database} dump...");
-        Process::run("scp {$this->argument('ssh-user')}@{$this->argument('ssh-host')}:{$database}.sql.7z .")->throw();
+        Process::run("scp {$this->option('ssh-user')}@{$this->option('ssh-host')}:{$database}.sql.7z .")->throw();
         $this->sshExec("rm {$database}.sql.7z");
 
         // Extract dump locally
@@ -97,10 +97,10 @@ class SyncDatabaseCommand extends Command
         $this->info('Checking remote commands...');
         foreach ($this->requiredCommands['remote'] as $command) {
             if (!$this->isRemoteCommandAvailable($command)) {
-                $this->error("Required remote command '{$command}' is not available on {$this->argument('ssh-host')}.");
+                $this->error("Required remote command '{$command}' is not available on {$this->option('ssh-host')}.");
                 $allCommandsAvailable = false;
             } else {
-                $this->line("✓ Remote command '{$command}' is available on {$this->argument('ssh-host')}.");
+                $this->line("✓ Remote command '{$command}' is available on {$this->option('ssh-host')}.");
             }
         }
 
@@ -125,6 +125,6 @@ class SyncDatabaseCommand extends Command
 
     private function sshExec(string $command): \Symfony\Component\Process\Process
     {
-        return Ssh::create($this->argument('ssh-user'), $this->argument('ssh-host'))->execute($command);
+        return Ssh::create($this->option('ssh-user'), $this->option('ssh-host'))->execute($command);
     }
 }
