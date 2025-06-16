@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Process;
 
 class SyncDatabaseCommand extends Command
 {
-    protected $signature = 'komando:sync:database {--ssh-host : The SSH host of the source system} {--ssh-user=app : The SSH user of the source system} {--db-connections=mysql : The local database connection names (comma seperated) to sync}';
+    protected $signature = 'komando:sync:database {--ssh-host= : The SSH host of the source system} {--ssh-user=app : The SSH user of the source system} {--db-connections=mysql : The local database connection names (comma seperated) to sync}';
 
     protected $description = 'Fetches the DB from remote and syncs it with the local db';
 
