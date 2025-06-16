@@ -2,6 +2,7 @@
     "name": "programado/comando",
     "description": "A package filled with programado related laravel utilities.",
     "type": "laravel-package",
+    "version": "1.0.0",
     "require": {
         "php": ">=8.4",
         "laravel/framework": "^12.18",
