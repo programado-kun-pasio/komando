@@ -1,5 +1,5 @@
 {
-    "name": "programado/comando",
+    "name": "programado/komando",
     "description": "A package filled with programado related laravel utilities.",
     "type": "laravel-package",
     "version": "1.0.0",
