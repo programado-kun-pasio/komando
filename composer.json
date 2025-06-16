@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "require": {
         "php": ">=8.4",
-        "laravel/framework": "^12.18",
+        "laravel/framework": "^11.45",
         "spatie/ssh": "^1.13"
     },
     "autoload": {
