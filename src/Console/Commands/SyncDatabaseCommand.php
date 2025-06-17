@@ -33,6 +33,10 @@ class SyncDatabaseCommand extends Command
 
             $this->importDatabase($connection);
         }
+
+        // Run migrations
+        $this->info("Running migrations...");
+        $this->call('migrate', ['--force' => true, '--step' => true]);
     }
 
     protected function importDatabase(string $connection): void
@@ -69,10 +73,6 @@ class SyncDatabaseCommand extends Command
         Process::run("mysql -h {$config['host']} -u {$config['username']} -p'{$config['password']}' {$database} < {$database}.sql")->throw();
 
         File::delete("{$database}.sql");
-
-        // Run migrations
-        $this->info("Running migrations...");
-        $this->call('migrate', ['--force' => true, '--step' => true]);
 
         $this->info("Database sync completed successfully for {$database}!");
     }
