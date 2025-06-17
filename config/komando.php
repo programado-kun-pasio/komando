@@ -30,6 +30,10 @@ return [
             'options' => ['--skip-lock-tables'],
         ],
         
+        'mysql' => [
+            'import_timeout' => env('KOMANDO_MYSQL_TIMEOUT', 300), // seconds
+        ],
+        
         'safety' => [
             'allow_production_wipe' => false,
         ],

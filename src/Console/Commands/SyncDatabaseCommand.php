@@ -80,7 +80,8 @@ class SyncDatabaseCommand extends Command
             '--force' => !App::environment('production') || $allowProductionWipe,
         ]);
 
-        Process::run("mysql -h {$config['host']} -u {$config['username']} -p'{$config['password']}' {$database} < {$database}.sql")->throw();
+        $importTimeout = config('komando.database_sync.mysql.import_timeout');
+        Process::timeout($importTimeout)->run("mysql -h {$config['host']} -u {$config['username']} -p'{$config['password']}' {$database} < {$database}.sql")->throw();
 
         File::delete("{$database}.sql");
 
