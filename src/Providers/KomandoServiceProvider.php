@@ -12,6 +12,19 @@ final class KomandoServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->mergeConfigFrom(__DIR__ . '/../../config/komando.php', 'komando');
         $this->commands(SyncDatabaseCommand::class);
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__ . '/../../config/komando.php' => config_path('komando.php'),
+            ], 'config');
+        }
     }
 }

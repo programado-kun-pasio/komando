@@ -10,27 +10,29 @@ use Illuminate\Support\Facades\Process;
 
 class SyncDatabaseCommand extends Command
 {
-    protected $signature = 'komando:sync:database {--ssh-host= : The SSH host of the source system} {--ssh-user=app : The SSH user of the source system} {--db-connections=mysql : The local database connection names (comma seperated) to sync}';
+    protected $signature = 'komando:sync:database';
 
     protected $description = 'Fetches the DB from remote and syncs it with the local db';
 
-    private array $requiredCommands = [
-        'local' => ['scp', '7z', 'mysql'],
-        'remote' => ['mysqldump', '7z'],
-    ];
 
     public function handle(): void
     {
+        $sshHost = config('komando.database_sync.ssh.host');
+        $sshUser = config('komando.database_sync.ssh.user');
+        $connections = config('komando.database_sync.connections');
+
+        if (empty($sshHost)) {
+            $this->error('SSH host is not configured. Please set KOMANDO_SSH_HOST in your .env file or publish the configuration.');
+            return;
+        }
+
         if (!$this->checkRequiredCommands()) {
             $this->error('Not all required commands are available. Aborting sync.');
             return;
         }
 
-        $connections = explode(',', $this->option('db-connections'));
-
         foreach ($connections as $connection) {
             $this->info("Starting database sync for: {$connection}");
-
             $this->importDatabase($connection);
         }
 
@@ -46,18 +48,25 @@ class SyncDatabaseCommand extends Command
 
         $this->info("Starting database sync for {$database}...");
 
+        $remoteDbHost = config('komando.database_sync.remote_database.host');
+        $remoteDbUser = config('komando.database_sync.remote_database.user');
+        $mysqldumpOptions = implode(' ', config('komando.database_sync.mysqldump.options'));
+        $compressionLevel = config('komando.database_sync.compression.level');
+        $sshHost = config('komando.database_sync.ssh.host');
+        $sshUser = config('komando.database_sync.ssh.user');
+
         // Create database dump
         $this->info("Creating dump {$database}.sql...");
-        $this->sshExec("mysqldump -h 127.0.0.1 -u default --skip-lock-tables {$database} > {$database}.sql");
+        $this->sshExec("mysqldump -h {$remoteDbHost} -u {$remoteDbUser} {$mysqldumpOptions} {$database} > {$database}.sql");
 
         // Compress dump
         $this->info("Compressing dump {$database}.sql to {$database}.sql.7z...");
-        $this->sshExec("7z a -mx=9 {$database}.sql.7z {$database}.sql");
+        $this->sshExec("7z a -mx={$compressionLevel} {$database}.sql.7z {$database}.sql");
         $this->sshExec("rm {$database}.sql");
 
         // Copy dump locally
         $this->info("Copying {$database} dump...");
-        Process::run("scp {$this->option('ssh-user')}@{$this->option('ssh-host')}:{$database}.sql.7z .")->throw();
+        Process::run("scp {$sshUser}@{$sshHost}:{$database}.sql.7z .")->throw();
         $this->sshExec("rm {$database}.sql.7z");
 
         // Extract dump locally
@@ -65,9 +74,10 @@ class SyncDatabaseCommand extends Command
         Process::run("7z x -aoa {$database}.sql.7z")->throw();
         File::delete("{$database}.sql.7z");
 
+        $allowProductionWipe = config('komando.database_sync.safety.allow_production_wipe');
         $this->call('db:wipe', [
             '--database' => $connection,
-            '--force' => !App::environment('production'),
+            '--force' => !App::environment('production') || $allowProductionWipe,
         ]);
 
         Process::run("mysql -h {$config['host']} -u {$config['username']} -p'{$config['password']}' {$database} < {$database}.sql")->throw();
@@ -81,11 +91,13 @@ class SyncDatabaseCommand extends Command
     {
         $this->info('Checking required commands...');
 
+        $requiredCommands = config('komando.database_sync.commands');
+        $sshHost = config('komando.database_sync.ssh.host');
         $allCommandsAvailable = true;
 
         // Check local commands
         $this->info('Checking local commands...');
-        foreach ($this->requiredCommands['local'] as $command) {
+        foreach ($requiredCommands['local'] as $command) {
             if (!$this->isLocalCommandAvailable($command)) {
                 $this->error("Required local command '{$command}' is not available.");
                 $allCommandsAvailable = false;
@@ -95,12 +107,12 @@ class SyncDatabaseCommand extends Command
         }
 
         $this->info('Checking remote commands...');
-        foreach ($this->requiredCommands['remote'] as $command) {
+        foreach ($requiredCommands['remote'] as $command) {
             if (!$this->isRemoteCommandAvailable($command)) {
-                $this->error("Required remote command '{$command}' is not available on {$this->option('ssh-host')}.");
+                $this->error("Required remote command '{$command}' is not available on {$sshHost}.");
                 $allCommandsAvailable = false;
             } else {
-                $this->line("✓ Remote command '{$command}' is available on {$this->option('ssh-host')}.");
+                $this->line("✓ Remote command '{$command}' is available on {$sshHost}.");
             }
         }
 
@@ -125,7 +137,11 @@ class SyncDatabaseCommand extends Command
 
     private function sshExec(string $command): \Symfony\Component\Process\Process
     {
-        $process = Ssh::create($this->option('ssh-user'), $this->option('ssh-host'))->execute($command);
+        $sshUser = config('komando.database_sync.ssh.user');
+        $sshHost = config('komando.database_sync.ssh.host');
+        $sshPort = config('komando.database_sync.ssh.port');
+        
+        $process = Ssh::create($sshUser, $sshHost, $sshPort)->execute($command);
 
         throw_if(!$process->isSuccessful(), new \Exception($process->getErrorOutput()));
 

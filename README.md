@@ -17,32 +17,85 @@ This Artisan command enables the synchronization of databases between a remote s
 
 ## Installation
 
-Ensure that all required dependencies are installed on both the local and remote systems.
+1. Install the package via Composer
+2. Publish the configuration file:
+
+```bash
+php artisan vendor:publish --provider="Programado\Komando\Providers\KomandoServiceProvider" --tag="config"
+```
+
+3. Configure your environment variables in `.env`:
+
+```env
+KOMANDO_SSH_HOST=your-remote-host.com
+KOMANDO_SSH_USER=app
+KOMANDO_SSH_PORT=22
+KOMANDO_REMOTE_DB_HOST=127.0.0.1
+KOMANDO_REMOTE_DB_USER=default
+KOMANDO_REMOTE_DB_PASSWORD=your-password
+```
+
+## Configuration
+
+The package uses a configuration file `config/komando.php` with the following structure:
+
+```php
+return [
+    'database_sync' => [
+        'default_connection' => 'mysql',
+        'connections' => ['mysql'], // Database connections to sync
+        
+        'ssh' => [
+            'host' => env('KOMANDO_SSH_HOST'),
+            'user' => env('KOMANDO_SSH_USER', 'app'),
+            'port' => env('KOMANDO_SSH_PORT', 22),
+        ],
+        
+        'remote_database' => [
+            'host' => env('KOMANDO_REMOTE_DB_HOST', '127.0.0.1'),
+            'user' => env('KOMANDO_REMOTE_DB_USER', 'default'),
+            'password' => env('KOMANDO_REMOTE_DB_PASSWORD'),
+        ],
+        
+        'commands' => [
+            'local' => ['scp', '7z', 'mysql'],
+            'remote' => ['mysqldump', '7z'],
+        ],
+        
+        'compression' => [
+            'level' => 9, // 7z compression level (1-9)
+        ],
+        
+        'mysqldump' => [
+            'options' => ['--skip-lock-tables'],
+        ],
+        
+        'safety' => [
+            'allow_production_wipe' => false,
+        ],
+    ],
+];
+```
 
 ## Usage
 
 ```bash
-php artisan komando:sync:database [db-connections] [ssh-user] [ssh-host]
+php artisan komando:sync:database
 ```
 
-### Parameters
+The command now reads all configuration from the config file and environment variables. No command-line parameters are needed.
 
-- `db-connections` (Optional): The local database connection names, comma-separated. Default: `mysql`
-- `ssh-user` (Optional): The SSH user of the source system. Default: `app`
-- `ssh-host` (Required): The SSH host of the source system
+### Configuration Options
 
-### Examples
-
-```bash
-# Synchronize the default MySQL database
-php artisan komando:sync:database mysql app example.com
-
-# Synchronize multiple databases
-php artisan komando:sync:database mysql,pgsql app example.com
-
-# Use a custom SSH user
-php artisan komando:sync:database mysql user example.com
-```
+- `connections`: Array of database connection names to sync
+- `ssh.host`: SSH hostname (required)
+- `ssh.user`: SSH username (default: 'app')
+- `ssh.port`: SSH port (default: 22)
+- `remote_database.*`: Remote database connection settings
+- `commands.*`: Required commands for local and remote systems
+- `compression.level`: 7z compression level (1-9)
+- `mysqldump.options`: Additional mysqldump options
+- `safety.allow_production_wipe`: Allow database wipe in production (default: false)
 
 ## Process
 
