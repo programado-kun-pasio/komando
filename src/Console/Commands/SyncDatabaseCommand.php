@@ -125,6 +125,10 @@ class SyncDatabaseCommand extends Command
 
     private function sshExec(string $command): \Symfony\Component\Process\Process
     {
-        return Ssh::create($this->option('ssh-user'), $this->option('ssh-host'))->execute($command);
+        $process = Ssh::create($this->option('ssh-user'), $this->option('ssh-host'))->execute($command);
+
+        throw_if(!$process->isSuccessful(), new \Exception($process->getErrorOutput()));
+
+        return $process;
     }
 }
