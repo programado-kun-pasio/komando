@@ -86,6 +86,14 @@ class SyncDatabaseCommand extends Command
         File::delete("{$database}.sql");
 
         $this->info("Database sync completed successfully for {$database}!");
+
+        $commandsAfterSync = config('komando.database_sync.after_sync_commands', []);
+
+        foreach ($commandsAfterSync as $command) {
+            $this->info("Running command: {$command}");
+
+            $this->call($commandsAfterSync);
+        }
     }
 
     protected function checkRequiredCommands(): bool

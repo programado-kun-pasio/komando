@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 return [
     'database_sync' => [
@@ -37,5 +37,9 @@ return [
         'safety' => [
             'allow_production_wipe' => false,
         ],
+
+        'after_sync_commands' => [
+
+        ]
     ],
 ];
