@@ -9,6 +9,7 @@ return [
             'host' => env('KOMANDO_SSH_HOST'),
             'user' => env('KOMANDO_SSH_USER', 'app'),
             'port' => env('KOMANDO_SSH_PORT', 22),
+            'password' => env('KOMANDO_SSH_PASSWORD'),
         ],
         
         'remote_database' => [
@@ -31,7 +32,10 @@ return [
         ],
         
         'mysql' => [
-            'import_timeout' => env('KOMANDO_MYSQL_TIMEOUT', 300), // seconds
+            'timeout' => [
+                'import' => env('KOMANDO_MYSQL_TIMEOUT_IMPORT', 300), // seconds
+                'copy' => env('KOMANDO_MYSQL_TIMEOUT_COPY', 300), // seconds
+            ]
         ],
         
         'safety' => [

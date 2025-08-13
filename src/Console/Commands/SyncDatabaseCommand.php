@@ -66,7 +66,8 @@ class SyncDatabaseCommand extends Command
 
         // Copy dump locally
         $this->info("Copying {$database} dump...");
-        Process::run("scp {$sshUser}@{$sshHost}:{$database}.sql.7z .")->throw();
+        $copyTimeout = config('komando.database_sync.mysql.copy_timeout');
+        Process::timeout($copyTimeout)->run("scp {$sshUser}@{$sshHost}:{$database}.sql.7z .")->throw();
         $this->sshExec("rm {$database}.sql.7z");
 
         // Extract dump locally
@@ -149,8 +150,9 @@ class SyncDatabaseCommand extends Command
         $sshUser = config('komando.database_sync.ssh.user');
         $sshHost = config('komando.database_sync.ssh.host');
         $sshPort = config('komando.database_sync.ssh.port');
-        
-        $process = Ssh::create($sshUser, $sshHost, $sshPort)->execute($command);
+        $sshPassword = config('komando.database_sync.ssh.password');
+
+        $process = Ssh::create($sshUser, $sshHost, $sshPort, $sshPassword)->execute($command);
 
         throw_if(!$process->isSuccessful(), new \Exception($process->getErrorOutput()));
 
