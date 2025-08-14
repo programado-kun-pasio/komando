@@ -66,7 +66,7 @@ class SyncDatabaseCommand extends Command
 
         // Copy dump locally
         $this->info("Copying {$database} dump...");
-        $copyTimeout = config('komando.database_sync.mysql.copy_timeout');
+        $copyTimeout = config('komando.database_sync.mysql.timeouts.copy');
         Process::timeout($copyTimeout)->run("scp {$sshUser}@{$sshHost}:{$database}.sql.7z .")->throw();
         $this->sshExec("rm {$database}.sql.7z");
 
@@ -81,7 +81,7 @@ class SyncDatabaseCommand extends Command
             '--force' => !App::environment('production') || $allowProductionWipe,
         ]);
 
-        $importTimeout = config('komando.database_sync.mysql.import_timeout');
+        $importTimeout = config('komando.database_sync.mysql.timeouts.imports');
         Process::timeout($importTimeout)->run("mysql -h {$config['host']} -u {$config['username']} -p'{$config['password']}' {$database} < {$database}.sql")->throw();
 
         File::delete("{$database}.sql");

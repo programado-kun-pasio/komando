@@ -32,7 +32,7 @@ return [
         ],
         
         'mysql' => [
-            'timeout' => [
+            'timeouts' => [
                 'import' => env('KOMANDO_MYSQL_TIMEOUT_IMPORT', 300), // seconds
                 'copy' => env('KOMANDO_MYSQL_TIMEOUT_COPY', 300), // seconds
             ]
