@@ -54,6 +54,7 @@ class SyncDatabaseCommand extends Command
         $compressionLevel = config('komando.database_sync.compression.level');
         $sshHost = config('komando.database_sync.ssh.host');
         $sshUser = config('komando.database_sync.ssh.user');
+        $sshPort = config('komando.database_sync.ssh.port');
 
         // Create database dump
         $this->info("Creating dump {$database}.sql...");
@@ -67,7 +68,7 @@ class SyncDatabaseCommand extends Command
         // Copy dump locally
         $this->info("Copying {$database} dump...");
         $copyTimeout = config('komando.database_sync.mysql.timeouts.copy');
-        Process::timeout($copyTimeout)->run("scp {$sshUser}@{$sshHost}:{$database}.sql.7z .")->throw();
+        Process::timeout($copyTimeout)->run("scp -P {$sshPort} {$sshUser}@{$sshHost}:{$database}.sql.7z .")->throw();
         $this->sshExec("rm {$database}.sql.7z");
 
         // Extract dump locally
