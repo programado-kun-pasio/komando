@@ -92,9 +92,13 @@ class SyncDatabaseCommand extends Command
         $commandsAfterSync = config('komando.database_sync.after_sync_commands', []);
 
         foreach ($commandsAfterSync as $command) {
-            $this->info("Running command: {$command}");
-
-            $this->call($commandsAfterSync);
+            if (is_callable($command)) {
+                $this->info("Running callable");
+                $command();
+            } else {
+                $this->info("Running command: {$command}");
+                $this->call($commandsAfterSync);
+            }
         }
     }
 
