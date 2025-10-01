@@ -4,6 +4,7 @@ namespace Programado\Komando\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Programado\Komando\Console\Commands\SyncDatabaseCommand;
+use Programado\Komando\Console\Commands\UpdateGraphQLDevSchema;
 
 final class KomandoServiceProvider extends ServiceProvider
 {
@@ -14,6 +15,7 @@ final class KomandoServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../../config/komando.php', 'komando');
         $this->commands(SyncDatabaseCommand::class);
+        $this->commands(UpdateGraphQLDevSchema::class);
     }
 
     /**
