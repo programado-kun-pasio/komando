@@ -5,8 +5,9 @@ namespace Programado\Komando\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\File;
-use Spatie\Ssh\Ssh;
 use Illuminate\Support\Facades\Process;
+use Spatie\Ssh\Ssh;
+use Symfony\Component\Process\Process as SymfonyProcess;
 
 class SyncDatabaseCommand extends Command
 {
@@ -44,21 +45,30 @@ class SyncDatabaseCommand extends Command
     protected function importDatabase(string $connection): void
     {
         $config = config("database.connections.{$connection}");
-        $database = $config['database'];
+        $database = $config['database'] ?? null;
+        $driver = $config['driver'] ?? null;
+
+        if (empty($database) || empty($driver)) {
+            throw new \InvalidArgumentException("Database connection [{$connection}] is missing a driver or database name.");
+        }
+
+        if (!in_array($driver, ['mysql', 'pgsql'], true)) {
+            throw new \InvalidArgumentException("Database driver [{$driver}] is not supported for connection [{$connection}].");
+        }
 
         $this->info("Starting database sync for {$database}...");
 
         $remoteDbHost = config('komando.database_sync.remote_database.host');
         $remoteDbUser = config('komando.database_sync.remote_database.user');
-        $mysqldumpOptions = implode(' ', config('komando.database_sync.mysqldump.options'));
         $compressionLevel = config('komando.database_sync.compression.level');
         $sshHost = config('komando.database_sync.ssh.host');
         $sshUser = config('komando.database_sync.ssh.user');
         $sshPort = config('komando.database_sync.ssh.port');
+        $copyTimeout = (int) config('komando.database_sync.mysql.timeouts.copy');
 
         // Create database dump
         $this->info("Creating dump {$database}.sql...");
-        $this->sshExec("mysqldump -h {$remoteDbHost} -u {$remoteDbUser} {$mysqldumpOptions} {$database} > {$database}.sql");
+        $this->sshExec($this->buildRemoteDumpCommand($driver, $database, $remoteDbHost, $remoteDbUser));
 
         // Compress dump
         $this->info("Compressing dump {$database}.sql to {$database}.sql.7z...");
@@ -67,7 +77,6 @@ class SyncDatabaseCommand extends Command
 
         // Copy dump locally
         $this->info("Copying {$database} dump...");
-        $copyTimeout = config('komando.database_sync.mysql.timeouts.copy');
         Process::timeout($copyTimeout)->run("scp -P {$sshPort} {$sshUser}@{$sshHost}:{$database}.sql.7z .")->throw();
         $this->sshExec("rm {$database}.sql.7z");
 
@@ -82,8 +91,8 @@ class SyncDatabaseCommand extends Command
             '--force' => !App::environment('production') || $allowProductionWipe,
         ]);
 
-        $importTimeout = config('komando.database_sync.mysql.timeouts.import');
-        Process::timeout($importTimeout)->run("mysql -h {$config['host']} -u {$config['username']} -p'{$config['password']}' {$database} < {$database}.sql")->throw();
+        $importTimeout = (int) config('komando.database_sync.mysql.timeouts.import');
+        Process::timeout($importTimeout)->run($this->buildLocalImportCommand($driver, $config, $database))->throw();
 
         File::delete("{$database}.sql");
 
@@ -106,7 +115,7 @@ class SyncDatabaseCommand extends Command
     {
         $this->info('Checking required commands...');
 
-        $requiredCommands = config('komando.database_sync.commands');
+        $requiredCommands = $this->getRequiredCommands();
         $sshHost = config('komando.database_sync.ssh.host');
         $allCommandsAvailable = true;
 
@@ -150,7 +159,117 @@ class SyncDatabaseCommand extends Command
         }
     }
 
-    private function sshExec(string $command): \Symfony\Component\Process\Process
+    protected function getRequiredCommands(): array
+    {
+        $localCommands = $this->filterDatabaseSpecificCommands(
+            config('komando.database_sync.commands.local', [])
+        );
+        $remoteCommands = $this->filterDatabaseSpecificCommands(
+            config('komando.database_sync.commands.remote', [])
+        );
+
+        foreach ((array) config('komando.database_sync.connections', []) as $connection) {
+            $driver = config("database.connections.{$connection}.driver");
+
+            if ($driver === 'pgsql') {
+                $localCommands[] = 'psql';
+                $remoteCommands[] = 'pg_dump';
+            }
+
+            if ($driver === 'mysql') {
+                $localCommands[] = 'mysql';
+                $remoteCommands[] = 'mysqldump';
+            }
+        }
+
+        return [
+            'local' => array_values(array_unique($localCommands)),
+            'remote' => array_values(array_unique($remoteCommands)),
+        ];
+    }
+
+    protected function filterDatabaseSpecificCommands(array $commands): array
+    {
+        return array_values(array_filter(
+            $commands,
+            static fn (string $command): bool => !in_array($command, ['mysql', 'mysqldump', 'psql', 'pg_dump'], true)
+        ));
+    }
+
+    protected function buildRemoteDumpCommand(string $driver, string $database, string $remoteDbHost, string $remoteDbUser): string
+    {
+        $remoteDbPassword = config('komando.database_sync.remote_database.password');
+
+        return match ($driver) {
+            'mysql' => implode(' ', array_filter([
+                $this->withPasswordEnv('MYSQL_PWD', $remoteDbPassword),
+                "mysqldump -h {$remoteDbHost} -u {$remoteDbUser}",
+                $this->implodeOptions(config('komando.database_sync.mysqldump.options', [])),
+                $database,
+            ])) . " > {$database}.sql",
+            'pgsql' => implode(' ', array_filter([
+                $this->withPasswordEnv('PGPASSWORD', $remoteDbPassword),
+                "pg_dump -h {$remoteDbHost} -U {$remoteDbUser}",
+                $this->implodeOptions(config('komando.database_sync.pg_dump.options', [])),
+                $database,
+            ])) . " > {$database}.sql",
+        };
+    }
+
+    protected function buildLocalImportCommand(string $driver, array $config, string $database): string
+    {
+        $host = $config['host'] ?? '127.0.0.1';
+        $username = $config['username'] ?? null;
+        $password = $config['password'] ?? null;
+        $port = $config['port'] ?? null;
+
+        if (empty($username)) {
+            throw new \InvalidArgumentException("Database connection for [{$database}] is missing a username.");
+        }
+
+        return match ($driver) {
+            'mysql' => trim(implode(' ', array_filter([
+                $this->withPasswordEnv('MYSQL_PWD', $password),
+                'mysql',
+                '-h',
+                escapeshellarg((string) $host),
+                $port ? '-P ' . escapeshellarg((string) $port) : null,
+                '-u',
+                escapeshellarg((string) $username),
+                escapeshellarg($database),
+                '< ' . escapeshellarg("{$database}.sql"),
+            ]))),
+            'pgsql' => trim(implode(' ', array_filter([
+                $this->withPasswordEnv('PGPASSWORD', $password),
+                'psql',
+                '-h',
+                escapeshellarg((string) $host),
+                $port ? '-p ' . escapeshellarg((string) $port) : null,
+                '-U',
+                escapeshellarg((string) $username),
+                '-d',
+                escapeshellarg($database),
+                '-f',
+                escapeshellarg("{$database}.sql"),
+            ]))),
+        };
+    }
+
+    protected function withPasswordEnv(string $name, ?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return "{$name}='{$value}'";
+    }
+
+    protected function implodeOptions(array $options): string
+    {
+        return implode(' ', $options);
+    }
+
+    private function sshExec(string $command): SymfonyProcess
     {
         $sshUser = config('komando.database_sync.ssh.user');
         $sshHost = config('komando.database_sync.ssh.host');

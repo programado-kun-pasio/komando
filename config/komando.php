@@ -3,7 +3,7 @@
 return [
     'database_sync' => [
         'default_connection' => 'mysql',
-        'connections' => ['mysql'],
+        'connections' => [env('KOMANDO_CONNECTION', 'mysql')],
         
         'ssh' => [
             'host' => env('KOMANDO_SSH_HOST'),
@@ -19,8 +19,8 @@ return [
         ],
         
         'commands' => [
-            'local' => ['scp', '7z', 'mysql'],
-            'remote' => ['mysqldump', '7z'],
+            'local' => ['scp', '7z'],
+            'remote' => ['7z'],
         ],
         
         'compression' => [
@@ -29,6 +29,10 @@ return [
         
         'mysqldump' => [
             'options' => ['--skip-lock-tables'],
+        ],
+
+        'pg_dump' => [
+            'options' => ['--clean', '--if-exists', '--no-owner', '--no-privileges'],
         ],
         
         'mysql' => [
