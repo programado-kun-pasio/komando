@@ -1,8 +1,16 @@
 {
     "name": "programado/komando",
-    "description": "A package filled with programado related laravel utilities.",
+    "description": "Laravel utilities by programado, including database synchronization and reusable GraphQL file attachments.",
+    "keywords": [
+        "laravel",
+        "lighthouse",
+        "graphql",
+        "file-attachments",
+        "database-sync"
+    ],
+    "homepage": "https://github.com/programado-kun-pasio/komando",
     "type": "laravel-package",
-    "version": "1.0.2",
+    "license": "MIT",
     "require": {
         "php": ">=8.4",
         "laravel/framework": "^11.0|^12.0|^13.0",
@@ -34,6 +42,10 @@
             "email": "friedrich.waack@programado.de"
         }
     ],
+    "support": {
+        "issues": "https://github.com/programado-kun-pasio/komando/issues",
+        "source": "https://github.com/programado-kun-pasio/komando"
+    },
     "extra": {
         "laravel": {
             "providers": [

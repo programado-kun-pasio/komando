@@ -133,30 +133,19 @@ This Artisan command enables the synchronization of databases between a remote s
 
 ## Installation
 
-1. Add the repository to your `composer.json`:
-
-```json
-"repositories": {
-    "komando": {
-        "type": "vcs",
-        "url": "https://github.com/programado-kun-pasio/komando.git"
-    }
-}
-```
-
-2. Install the package via Composer:
+1. Install the package via Composer:
 
 ```bash
 composer require programado/komando
 ```
 
-3. Publish the configuration file:
+2. Publish the configuration file:
 
 ```bash
 php artisan vendor:publish --provider="Programado\Komando\Providers\KomandoServiceProvider" --tag="config"
 ```
 
-4. Configure your environment variables in `.env`:
+3. Configure your environment variables in `.env`:
 
 ```env
 KOMANDO_SSH_HOST=your-remote-host.com
