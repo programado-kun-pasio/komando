@@ -204,13 +204,13 @@ class SyncDatabaseCommand extends Command
             'mysql' => implode(' ', array_filter([
                 $this->withPasswordEnv('MYSQL_PWD', $remoteDbPassword),
                 "mysqldump -h {$remoteDbHost} -u {$remoteDbUser}",
-                $this->implodeOptions(config('komando.database_sync.mysqldump.options', [])),
+                implode(' ', config('komando.database_sync.mysqldump.options', [])),
                 $database,
             ])) . " > {$database}.sql",
             'pgsql' => implode(' ', array_filter([
                 $this->withPasswordEnv('PGPASSWORD', $remoteDbPassword),
                 "pg_dump -h {$remoteDbHost} -U {$remoteDbUser}",
-                $this->implodeOptions(config('komando.database_sync.pg_dump.options', [])),
+                implode(' ', config('komando.database_sync.pg_dump.options', [])),
                 $database,
             ])) . " > {$database}.sql",
         };
@@ -262,11 +262,6 @@ class SyncDatabaseCommand extends Command
         }
 
         return "{$name}='{$value}'";
-    }
-
-    protected function implodeOptions(array $options): string
-    {
-        return implode(' ', $options);
     }
 
     private function sshExec(string $command): SymfonyProcess
