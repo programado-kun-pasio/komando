@@ -4,11 +4,15 @@ namespace Programado\Komando\Tests\Feature;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
 use Nuwave\Lighthouse\Exceptions\DefinitionException;
+use Programado\Komando\Files\Contracts\StoredFileFactoryContract;
+use Programado\Komando\Files\Events\StoredFileStored;
 use Programado\Komando\Files\GraphQL\Directives\FileSlotDirective;
+use Programado\Komando\Files\Models\File;
 use Programado\Komando\Files\Services\FileAttachmentService;
 use Programado\Komando\Tests\Fixtures\TestFile;
 use Programado\Komando\Tests\Fixtures\TestOwner;
@@ -46,6 +50,106 @@ final class FileAttachmentServiceTest extends TestCase
         $migration->down();
 
         $this->assertFalse(Schema::hasTable('file_attachments'));
+    }
+
+    public function test_the_package_migration_creates_and_removes_the_file_table(): void
+    {
+        $this->assertTrue(Schema::hasTable('files'));
+        $this->assertTrue(Schema::hasColumns('files', [
+            'id',
+            'name',
+            'mime_type',
+            'extension',
+            'size',
+            'metadata',
+            'created_at',
+            'updated_at',
+        ]));
+
+        $migration = require dirname(__DIR__, 2).'/database/migrations/2026_08_28_000000_create_files_table.php';
+        $migration->down();
+
+        $this->assertFalse(Schema::hasTable('files'));
+    }
+
+    public function test_the_file_table_migration_can_be_disabled_without_removing_an_existing_table(): void
+    {
+        config()->set('komando.files.migrate_file_table', false);
+
+        $migration = require dirname(__DIR__, 2).'/database/migrations/2026_08_28_000000_create_files_table.php';
+        $migration->down();
+        $migration->up();
+
+        $this->assertTrue(Schema::hasTable('files'));
+    }
+
+    public function test_the_default_model_and_a_custom_file_model_are_supported(): void
+    {
+        $defaultFile = app(StoredFileFactoryContract::class)->create(
+            UploadedFile::fake()->create('default.pdf', 12, 'application/pdf'),
+        );
+
+        $this->assertInstanceOf(File::class, $defaultFile);
+        $this->assertSame([], $defaultFile->metadata);
+
+        config()->set('komando.files.file_model', TestFile::class);
+
+        $customFile = app(StoredFileFactoryContract::class)->create(
+            UploadedFile::fake()->create('custom.pdf', 12, 'application/pdf'),
+        );
+
+        $this->assertInstanceOf(TestFile::class, $customFile);
+    }
+
+    public function test_storing_a_file_dispatches_an_event_after_commit_but_not_after_rollback(): void
+    {
+        $owner = TestOwner::query()->create(['name' => 'Acme']);
+        $storedFileIds = collect();
+
+        Event::listen(
+            StoredFileStored::class,
+            static function (StoredFileStored $event) use ($storedFileIds): void {
+                $storedFileIds->push($event->file->getKey());
+            },
+        );
+
+        $committedFile = app(FileAttachmentService::class)->add(
+            $owner,
+            UploadedFile::fake()->create('committed.pdf'),
+        );
+
+        $this->assertSame([$committedFile->getKey()], $storedFileIds->all());
+
+        try {
+            DB::transaction(function () use ($owner): void {
+                app(FileAttachmentService::class)->add(
+                    $owner,
+                    UploadedFile::fake()->create('rolled-back.pdf'),
+                );
+
+                throw new RuntimeException('rollback');
+            });
+        } catch (RuntimeException) {
+            // The event must not be delivered for the rolled back file.
+        }
+
+        $this->assertSame([$committedFile->getKey()], $storedFileIds->all());
+    }
+
+    public function test_the_default_file_model_exposes_the_configured_download_route(): void
+    {
+        $owner = TestOwner::query()->create(['name' => 'Acme']);
+        $file = app(FileAttachmentService::class)->add(
+            $owner,
+            UploadedFile::fake()->create('download.pdf', 12, 'application/pdf'),
+        );
+
+        $this->assertSame($file->storageName(), $file->name());
+        $this->assertSame(Storage::disk('files')->path($file->storageName()), $file->path());
+
+        $this->get($file->url())
+            ->assertOk()
+            ->assertDownload("{$file->storageName()}.pdf");
     }
 
     public function test_it_creates_replaces_and_removes_a_named_slot(): void
@@ -118,7 +222,7 @@ final class FileAttachmentServiceTest extends TestCase
 
         $this->assertSame($original->getKey(), $owner->fileForSlot('LOGO')?->getKey());
         $this->assertSame([$original->storageName()], Storage::disk('files')->allFiles());
-        $this->assertSame(1, TestFile::query()->count());
+        $this->assertSame(1, File::query()->count());
     }
 
     public function test_a_nested_rollback_only_cleans_up_files_created_in_the_nested_transaction(): void

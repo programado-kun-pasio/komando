@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+use Programado\Komando\Files\Models\File;
 use Programado\Komando\Files\Models\FileAttachment;
 use Programado\Komando\Files\Services\DefaultStoredFileFactory;
 
@@ -6,12 +7,18 @@ return [
     'files' => [
         'enabled' => false,
         'migrations' => true,
-        'file_model' => null,
+        'migrate_file_table' => true,
+        'file_model' => File::class,
         'attachment_model' => FileAttachment::class,
         'factory' => DefaultStoredFileFactory::class,
         'disk' => 'files',
         'attachment_table' => 'file_attachments',
         'graphql_slot_type' => 'String',
+        'download' => [
+            'enabled' => true,
+            'path' => 'api/files/{file}/download',
+            'middleware' => [],
+        ],
     ],
 
     'database_sync' => [

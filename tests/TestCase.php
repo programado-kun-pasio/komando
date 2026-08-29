@@ -7,7 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
 use Programado\Komando\Providers\KomandoServiceProvider;
-use Programado\Komando\Tests\Fixtures\TestFile;
 
 abstract class TestCase extends OrchestraTestCase
 {
@@ -26,7 +25,6 @@ abstract class TestCase extends OrchestraTestCase
             'database' => ':memory:',
             'prefix' => '',
         ]);
-        $app['config']->set('komando.files.file_model', TestFile::class);
         $app['config']->set('komando.files.enabled', true);
         $app['config']->set('komando.files.disk', 'files');
         $app['config']->set('filesystems.disks.files', [
@@ -41,16 +39,6 @@ abstract class TestCase extends OrchestraTestCase
         Schema::create('owners', function (Blueprint $table): void {
             $table->id();
             $table->string('name');
-            $table->timestamps();
-        });
-
-        Schema::create('files', function (Blueprint $table): void {
-            $table->ulid('id')->primary();
-            $table->string('name');
-            $table->string('mime_type');
-            $table->string('extension');
-            $table->unsignedBigInteger('size');
-            $table->json('metadata')->default('{}');
             $table->timestamps();
         });
     }

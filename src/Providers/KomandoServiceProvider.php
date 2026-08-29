@@ -4,11 +4,13 @@ namespace Programado\Komando\Providers;
 
 use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
 use Programado\Komando\Console\Commands\SyncDatabaseCommand;
 use Programado\Komando\Console\Commands\UpdateGraphQLDevSchema;
 use Programado\Komando\Files\Contracts\StoredFileFactoryContract;
+use Programado\Komando\Files\Http\Controllers\DownloadFileController;
 use Programado\Komando\Files\Services\DefaultStoredFileFactory;
 use Programado\Komando\Files\Services\RollbackCleanupRegistry;
 
@@ -70,5 +72,14 @@ final class KomandoServiceProvider extends ServiceProvider
             RegisterDirectiveNamespaces::class,
             static fn (): string => 'Programado\\Komando\\Files\\GraphQL\\Directives',
         );
+
+        if (config('komando.files.download.enabled', true)) {
+            Route::middleware(config('komando.files.download.middleware', []))
+                ->get(
+                    strval(config('komando.files.download.path', 'api/files/{file}/download')),
+                    DownloadFileController::class,
+                )
+                ->name('komando.files.download');
+        }
     }
 }

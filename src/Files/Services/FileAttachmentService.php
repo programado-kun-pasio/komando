@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Programado\Komando\Files\Contracts\HasFileAttachmentsContract;
 use Programado\Komando\Files\Contracts\StoredFileContract;
 use Programado\Komando\Files\Contracts\StoredFileFactoryContract;
+use Programado\Komando\Files\Events\StoredFileStored;
 use Programado\Komando\Files\Models\FileAttachment;
 use Programado\Komando\Files\Support\Slot;
 use RuntimeException;
@@ -128,6 +129,8 @@ final readonly class FileAttachmentService
             DB::connection(),
             static fn () => Storage::disk($diskName)->delete($storageName),
         );
+
+        StoredFileStored::dispatch($file);
 
         return $file;
     }

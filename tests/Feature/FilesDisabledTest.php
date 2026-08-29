@@ -2,6 +2,7 @@
 
 namespace Programado\Komando\Tests\Feature;
 
+use Illuminate\Support\Facades\Route;
 use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
 use Orchestra\Testbench\TestCase;
 use Programado\Komando\Providers\KomandoServiceProvider;
@@ -20,5 +21,6 @@ final class FilesDisabledTest extends TestCase
 
         $this->assertNotContains($migrationPath, app('migrator')->paths());
         $this->assertNotContains('Programado\\Komando\\Files\\GraphQL\\Directives', $directiveNamespaces);
+        $this->assertNull(Route::getRoutes()->getByName('komando.files.download'));
     }
 }

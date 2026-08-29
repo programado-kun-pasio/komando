@@ -3,17 +3,17 @@
 ## GraphQL file attachments
 
 Komando provides reusable named file slots and unassigned file attachments for Eloquent models and Lighthouse mutations.
-The package owns the attachment mechanics while each application keeps its own file model, slot enum, authorization,
-download route and data migration.
+The package includes a ready-to-use file model, file and attachment migrations, a download route and the complete
+attachment lifecycle. Applications only keep their slot enum, authorization and legacy data migrations.
 
 ### Requirements
 
 - Configure Lighthouse with `transactional_mutations` enabled so the parent mutation and its files share one transaction.
-- The configured file model must contain `name`, `mime_type`, `extension`, `size` and `metadata` columns.
-- Enable the file module and configure its file model before running migrations.
+- Enable the file module before running migrations.
+- Custom file models must contain `name`, `mime_type`, `extension`, `size` and `metadata` columns.
 
-The package migration creates `file_attachments`. Laravel derives `file_id` as an integer, UUID or ULID through the
-configured file model. `attachable_id` follows Laravel's global morph key type.
+The package migrations create `files` and `file_attachments`. Laravel derives `file_id` as an integer, UUID or ULID
+through the configured file model. `attachable_id` follows Laravel's global morph key type.
 
 ```php
 Schema::morphUsingUuids();
@@ -21,7 +21,9 @@ Schema::morphUsingUuids();
 ```
 
 Existing applications keep project-specific data migrations, for example renaming an old polymorphic table or mapping
-legacy tags to slots. Set `migrations` to `false` only when the application deliberately owns the attachment table.
+legacy tags to slots. Set `migrate_file_table` to `false` when the application already owns the `files` table. Keep this
+setting stable so migration rollback uses the same table ownership decision. Set `migrations` to `false` only when the
+application deliberately owns all package tables.
 
 ### Configuration
 
@@ -35,16 +37,25 @@ php artisan vendor:publish --provider="Programado\Komando\Providers\KomandoServi
 'files' => [
     'enabled' => true,
     'migrations' => true,
-    'file_model' => App\Models\File::class,
+    'migrate_file_table' => true,
+    'file_model' => Programado\Komando\Files\Models\File::class,
     'attachment_model' => Programado\Komando\Files\Models\FileAttachment::class,
     'factory' => Programado\Komando\Files\Services\DefaultStoredFileFactory::class,
     'disk' => 'files',
     'attachment_table' => 'file_attachments',
     'graphql_slot_type' => 'FileSlot',
+    'download' => [
+        'enabled' => true,
+        'path' => 'api/files/{file}/download',
+        'middleware' => [],
+    ],
 ],
 ```
 
-The file model implements `StoredFileContract` and uses `IsStoredFile`:
+The default file model uses ULIDs and exposes `storageName()`, `name()`, `path()` and `url()`. Its download route is
+named `komando.files.download`. The path and middleware can be configured without changing the generated URLs.
+
+Applications can replace it with a custom model implementing `StoredFileContract` and using `IsStoredFile`:
 
 ```php
 use Programado\Komando\Files\Contracts\StoredFileContract;
@@ -99,6 +110,9 @@ and only when no attachment references remain.
 
 Applications with additional required file columns can configure a custom implementation of
 `StoredFileFactoryContract`.
+
+After the database record and physical file are stored successfully, Komando dispatches `StoredFileStored`. The event
+implements `ShouldDispatchAfterCommit`, so listeners only run after the complete Lighthouse transaction commits.
 
 ## Database sync
 
