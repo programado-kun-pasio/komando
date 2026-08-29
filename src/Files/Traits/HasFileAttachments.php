@@ -31,6 +31,7 @@ trait HasFileAttachments
             $this->fileModelClass(),
             'attachable',
             strval(config('komando.files.attachment_table', 'file_attachments')),
+            relatedPivotKey: 'file_id',
         )
             ->withPivot(['id', 'slot'])
             ->withTimestamps();

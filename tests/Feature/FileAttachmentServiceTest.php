@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
+use Nuwave\Lighthouse\Exceptions\DefinitionException;
 use Programado\Komando\Files\GraphQL\Directives\FileSlotDirective;
 use Programado\Komando\Files\Services\FileAttachmentService;
 use Programado\Komando\Tests\Fixtures\TestFile;
@@ -120,6 +121,32 @@ final class FileAttachmentServiceTest extends TestCase
         $this->assertSame(1, TestFile::query()->count());
     }
 
+    public function test_a_nested_rollback_only_cleans_up_files_created_in_the_nested_transaction(): void
+    {
+        $owner = TestOwner::query()->create(['name' => 'Acme']);
+        $service = app(FileAttachmentService::class);
+
+        DB::transaction(function () use ($owner, $service): void {
+            $outerFile = $service->add($owner, UploadedFile::fake()->create('outer.pdf'));
+
+            try {
+                DB::transaction(function () use ($owner, $service): void {
+                    $service->add($owner, UploadedFile::fake()->create('inner.pdf'));
+
+                    throw new RuntimeException('nested rollback');
+                });
+            } catch (RuntimeException) {
+                // Assertions below verify cleanup at the correct transaction level.
+            }
+
+            $this->assertDatabaseHas('files', ['id' => $outerFile->getKey()]);
+            $this->assertSame([$outerFile->storageName()], Storage::disk('files')->allFiles());
+        });
+
+        $this->assertDatabaseCount('files', 1);
+        $this->assertDatabaseCount('file_attachments', 1);
+    }
+
     public function test_a_file_is_deleted_only_after_its_last_attachment_is_removed(): void
     {
         $firstOwner = TestOwner::query()->create(['name' => 'First']);
@@ -164,6 +191,43 @@ final class FileAttachmentServiceTest extends TestCase
         Storage::disk('files')->assertExists($file->storageName());
     }
 
+    public function test_an_invalid_upload_does_not_create_a_file_or_attachment(): void
+    {
+        $owner = TestOwner::query()->create(['name' => 'Acme']);
+        $upload = new UploadedFile(
+            __FILE__,
+            'broken.pdf',
+            'application/pdf',
+            UPLOAD_ERR_PARTIAL,
+            true,
+        );
+
+        try {
+            app(FileAttachmentService::class)->add($owner, $upload);
+            $this->fail('An invalid upload should throw an exception.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('partially uploaded', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('files', 0);
+        $this->assertDatabaseCount('file_attachments', 0);
+        $this->assertSame([], Storage::disk('files')->allFiles());
+    }
+
+    public function test_deleting_an_unattached_file_removes_its_physical_file(): void
+    {
+        $owner = TestOwner::query()->create(['name' => 'Acme']);
+        $file = app(FileAttachmentService::class)->add(
+            $owner,
+            UploadedFile::fake()->create('temporary.pdf'),
+        );
+        $owner->fileAttachments()->delete();
+
+        $this->assertTrue($file->delete());
+        $this->assertDatabaseMissing('files', ['id' => $file->getKey()]);
+        Storage::disk('files')->assertMissing($file->storageName());
+    }
+
     public function test_the_provider_registers_directives_and_the_slot_type_is_configurable(): void
     {
         config()->set('komando.files.graphql_slot_type', 'FileSlot');
@@ -172,5 +236,15 @@ final class FileAttachmentServiceTest extends TestCase
 
         $this->assertContains('Programado\\Komando\\Files\\GraphQL\\Directives', $namespaces);
         $this->assertStringContainsString('slot: FileSlot!', FileSlotDirective::definition());
+    }
+
+    public function test_an_invalid_graphql_slot_type_is_rejected(): void
+    {
+        config()->set('komando.files.graphql_slot_type', 'FileSlot!');
+
+        $this->expectException(DefinitionException::class);
+        $this->expectExceptionMessage('must be a valid GraphQL type name');
+
+        FileSlotDirective::definition();
     }
 }

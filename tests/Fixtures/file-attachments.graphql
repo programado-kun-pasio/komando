@@ -1,0 +1,44 @@
+scalar Upload
+
+type TestFile {
+  id: ID!
+  name: String!
+  mime_type: String!
+  extension: String!
+  size: Int!
+}
+
+type TestOwner {
+  id: ID!
+  name: String!
+  logo: TestFile @fileSlot(slot: "LOGO")
+  files: [TestFile!]! @fileAttachments
+}
+
+input FileAttachmentChangesInput {
+  add: [Upload!]
+  remove: [ID!]
+}
+
+input CreateTestOwnerInput {
+  name: String!
+  logo: Upload @fileSlot(slot: "LOGO")
+  files: FileAttachmentChangesInput @fileAttachments
+}
+
+input UpdateTestOwnerInput {
+  id: ID!
+  logo: Upload @fileSlot(slot: "LOGO")
+  files: FileAttachmentChangesInput @fileAttachments
+}
+
+type Query {
+  testOwner(id: ID! @eq): TestOwner @find(model: "Programado\\Komando\\Tests\\Fixtures\\TestOwner")
+}
+
+type Mutation {
+  createTestOwner(input: CreateTestOwnerInput! @spread): TestOwner!
+    @create(model: "Programado\\Komando\\Tests\\Fixtures\\TestOwner")
+  updateTestOwner(input: UpdateTestOwnerInput! @spread): TestOwner!
+    @update(model: "Programado\\Komando\\Tests\\Fixtures\\TestOwner")
+}
