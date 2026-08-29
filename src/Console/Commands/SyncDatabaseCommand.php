@@ -51,7 +51,7 @@ class SyncDatabaseCommand extends Command
             throw new \InvalidArgumentException("Database connection [{$connection}] is missing a driver or database name.");
         }
 
-        if (!in_array($driver, ['mysql', 'pgsql'], true)) {
+        if (!in_array($driver, ['mysql', 'mariadb', 'pgsql'], true)) {
             throw new \InvalidArgumentException("Database driver [{$driver}] is not supported for connection [{$connection}].");
         }
 
@@ -175,7 +175,7 @@ class SyncDatabaseCommand extends Command
                 $remoteCommands[] = 'pg_dump';
             }
 
-            if ($driver === 'mysql') {
+            if (in_array($driver, ['mysql', 'mariadb'], true)) {
                 $localCommands[] = 'mysql';
                 $remoteCommands[] = 'mysqldump';
             }
@@ -200,7 +200,7 @@ class SyncDatabaseCommand extends Command
         $remoteDbPassword = config('komando.database_sync.remote_database.password');
 
         return match ($driver) {
-            'mysql' => implode(' ', array_filter([
+            'mysql', 'mariadb' => implode(' ', array_filter([
                 $this->withPasswordEnv('MYSQL_PWD', $remoteDbPassword),
                 "mysqldump -h {$remoteDbHost} -u {$remoteDbUser}",
                 implode(' ', config('komando.database_sync.mysqldump.options', [])),
@@ -227,7 +227,7 @@ class SyncDatabaseCommand extends Command
         }
 
         return match ($driver) {
-            'mysql' => trim(implode(' ', array_filter([
+            'mysql', 'mariadb' => trim(implode(' ', array_filter([
                 $this->withPasswordEnv('MYSQL_PWD', $password),
                 'mysql',
                 '-h',
