@@ -2,6 +2,8 @@
 
 namespace Programado\Komando\Console\Commands;
 
+use Illuminate\Console\Attributes\Description;
+use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\File;
@@ -9,13 +11,10 @@ use Illuminate\Support\Facades\Process;
 use Spatie\Ssh\Ssh;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
+#[Signature('komando:db:sync')]
+#[Description('Fetches the DB from remote and syncs it with the local db')]
 class SyncDatabaseCommand extends Command
 {
-    protected $signature = 'komando:sync:database';
-
-    protected $description = 'Fetches the DB from remote and syncs it with the local db';
-
-
     public function handle(): void
     {
         $sshHost = config('komando.database_sync.ssh.host');

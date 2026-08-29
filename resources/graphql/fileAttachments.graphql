@@ -1,0 +1,5 @@
+"""Changes to unassigned files attached to the mutated model."""
+input FileAttachmentChangesInput {
+  add: [Upload!]
+  remove: [ID!]
+}

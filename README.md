@@ -1,4 +1,106 @@
-# Komando Database Sync
+# Komando
+
+## GraphQL file attachments
+
+Komando provides reusable named file slots and unassigned file attachments for Eloquent models and Lighthouse mutations.
+The package owns the attachment mechanics while each application keeps its own file model, slot enum, authorization,
+download route and data migration.
+
+### Requirements
+
+- Configure Lighthouse with `transactional_mutations` enabled so the parent mutation and its files share one transaction.
+- The configured file model must contain `name`, `mime_type`, `extension`, `size` and `metadata` columns.
+- Enable the file module and configure its file model before running migrations.
+
+The package migration creates `file_attachments`. Laravel derives `file_id` as an integer, UUID or ULID through the
+configured file model. `attachable_id` follows Laravel's global morph key type.
+
+```php
+Schema::morphUsingUuids();
+// Or Schema::morphUsingUlids() when attachment owners use ULIDs.
+```
+
+Existing applications keep project-specific data migrations, for example renaming an old polymorphic table or mapping
+legacy tags to slots. Set `migrations` to `false` only when the application deliberately owns the attachment table.
+
+### Configuration
+
+Publish the configuration and configure the application's file model:
+
+```bash
+php artisan vendor:publish --provider="Programado\Komando\Providers\KomandoServiceProvider" --tag="config"
+```
+
+```php
+'files' => [
+    'enabled' => true,
+    'migrations' => true,
+    'file_model' => App\Models\File::class,
+    'attachment_model' => Programado\Komando\Files\Models\FileAttachment::class,
+    'factory' => Programado\Komando\Files\Services\DefaultStoredFileFactory::class,
+    'disk' => 'files',
+    'attachment_table' => 'file_attachments',
+    'graphql_slot_type' => 'FileSlot',
+],
+```
+
+The file model implements `StoredFileContract` and uses `IsStoredFile`:
+
+```php
+use Programado\Komando\Files\Contracts\StoredFileContract;
+use Programado\Komando\Files\Traits\IsStoredFile;
+
+class File extends Model implements StoredFileContract
+{
+    use HasUlids, IsStoredFile;
+}
+```
+
+Models that own files implement `HasFileAttachmentsContract`:
+
+```php
+use Programado\Komando\Files\Contracts\HasFileAttachmentsContract;
+use Programado\Komando\Files\Traits\HasFileAttachments;
+
+class Workspace extends Model implements HasFileAttachmentsContract
+{
+    use HasFileAttachments;
+}
+```
+
+The application owns and registers its concrete backed `FileSlot` enum. Alternatively, keep the default
+`graphql_slot_type` value `String` and quote slot names in the schema.
+
+Publish the shared attachment input:
+
+```bash
+php artisan vendor:publish --provider="Programado\Komando\Providers\KomandoServiceProvider" --tag="komando-files-graphql"
+```
+
+The directives are discovered automatically and work on output and input fields:
+
+```graphql
+type Workspace {
+  logo_light: File @fileSlot(slot: WORKSPACE_LOGO_LIGHT)
+  files: [File!]! @fileAttachments
+}
+
+input UpsertWorkspaceInput {
+  id: ID
+  logo_light: Upload @fileSlot(slot: WORKSPACE_LOGO_LIGHT)
+  files: FileAttachmentChangesInput @fileAttachments
+}
+```
+
+For `@fileSlot`, omitted input keeps the slot unchanged, an `Upload` replaces it and `null` removes it.
+`@fileAttachments` accepts `add: [Upload!]` and `remove: [ID!]`; removal is restricted to unassigned files related to
+the mutated owner. New physical files are deleted after rollback, while replaced files are only deleted after commit
+and only when no attachment references remain.
+
+Applications with additional required file columns can configure a custom implementation of
+`StoredFileFactoryContract`.
+
+## Database sync
 
 ## Description
 
