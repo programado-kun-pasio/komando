@@ -14,6 +14,7 @@ use Programado\Komando\Files\Contracts\StoredFileContract;
  * @property int|string $attachable_id
  * @property string $attachable_type
  * @property ?string $slot
+ * @property ?string $collection
  * @property Model&StoredFileContract $file
  * @property Model $attachable
  */

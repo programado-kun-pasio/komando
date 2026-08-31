@@ -1,4 +1,4 @@
-"""Changes to unassigned files attached to the mutated model."""
+"""Changes to files in a named plural attachment slot on the mutated model."""
 input FileAttachmentChangesInput {
   add: [Upload!]
   remove: [ID!]

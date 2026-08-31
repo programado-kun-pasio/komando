@@ -2,7 +2,7 @@
 
 ## GraphQL file attachments
 
-Komando provides reusable named file slots and unassigned file attachments for Eloquent models and Lighthouse mutations.
+Komando provides reusable named singular and plural file attachments for Eloquent models and Lighthouse mutations.
 The package includes a ready-to-use file model, file and attachment migrations, a download route and the complete
 attachment lifecycle. Applications only keep their slot enum, authorization and legacy data migrations.
 
@@ -92,21 +92,24 @@ The directives are discovered automatically and work on output and input fields:
 
 ```graphql
 type Workspace {
-  logo_light: File @fileSlot(slot: WORKSPACE_LOGO_LIGHT)
-  files: [File!]! @fileAttachments
+  logo_light: File @fileAttachment(slot: WORKSPACE_LOGO_LIGHT)
+  documents(where: _ @searchBy, order: _ @sortBy): [File!]!
+    @fileAttachments(slot: WORKSPACE_DOCUMENTS)
 }
 
 input UpsertWorkspaceInput {
   id: ID
-  logo_light: Upload @fileSlot(slot: WORKSPACE_LOGO_LIGHT)
-  files: FileAttachmentChangesInput @fileAttachments
+  logo_light: Upload @fileAttachment(slot: WORKSPACE_LOGO_LIGHT)
+  documents: FileAttachmentChangesInput @fileAttachments(slot: WORKSPACE_DOCUMENTS)
 }
 ```
 
-For `@fileSlot`, omitted input keeps the slot unchanged, an `Upload` replaces it and `null` removes it.
-`@fileAttachments` accepts `add: [Upload!]` and `remove: [ID!]`; removal is restricted to unassigned files related to
-the mutated owner. New physical files are deleted after rollback, while replaced files are only deleted after commit
-and only when no attachment references remain.
+For `@fileAttachment`, omitted input keeps the slot unchanged, an `Upload` replaces it and `null` removes it.
+`@fileAttachments` requires a named collection and accepts `add: [Upload!]` and `remove: [ID!]`; removal is restricted
+to plural files related to the mutated owner and named slot. Field arguments
+such as `where: _ @searchBy` and `order: _ @sortBy` are applied to the underlying file query. New physical files are
+deleted after rollback, while replaced files are only deleted after commit and only when no attachment references
+remain.
 
 Applications with additional required file columns can configure a custom implementation of
 `StoredFileFactoryContract`.

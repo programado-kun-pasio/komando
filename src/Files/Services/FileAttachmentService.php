@@ -73,14 +73,15 @@ final readonly class FileAttachmentService
      * @param  Model&HasFileAttachmentsContract  $owner
      * @return Model&StoredFileContract
      */
-    public function add(Model $owner, UploadedFile $upload): Model
+    public function add(Model $owner, UploadedFile $upload, BackedEnum|string $slot): Model
     {
-        return DB::transaction(function () use ($owner, $upload): Model {
+        return DB::transaction(function () use ($owner, $upload, $slot): Model {
             $file = $this->store($upload);
 
             $owner->fileAttachments()->create([
                 'file_id' => $file->getKey(),
                 'slot' => null,
+                'collection' => Slot::value($slot),
             ]);
 
             return $file;
@@ -91,12 +92,13 @@ final readonly class FileAttachmentService
      * @param  Model&HasFileAttachmentsContract  $owner
      * @param  Collection<int, int|string>  $fileIds
      */
-    public function remove(Model $owner, Collection $fileIds): void
+    public function remove(Model $owner, Collection $fileIds, BackedEnum|string $slot): void
     {
-        DB::transaction(function () use ($owner, $fileIds): void {
+        DB::transaction(function () use ($owner, $fileIds, $slot): void {
             $owner->fileAttachments()
                 ->with('file')
                 ->whereNull('slot')
+                ->where('collection', '=', Slot::value($slot))
                 ->whereIn('file_id', $fileIds)
                 ->get()
                 ->each(function (FileAttachment $attachment): void {

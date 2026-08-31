@@ -11,8 +11,9 @@ type TestFile {
 type TestOwner {
   id: ID!
   name: String!
-  logo: TestFile @fileSlot(slot: "LOGO")
-  files: [TestFile!]! @fileAttachments
+  logo: TestFile @fileAttachment(slot: "LOGO")
+  files(name: String @eq): [TestFile!]! @fileAttachments(slot: "DOCUMENTS")
+  images: [TestFile!]! @fileAttachments(slot: "IMAGES")
 }
 
 input FileAttachmentChangesInput {
@@ -22,14 +23,16 @@ input FileAttachmentChangesInput {
 
 input CreateTestOwnerInput {
   name: String!
-  logo: Upload @fileSlot(slot: "LOGO")
-  files: FileAttachmentChangesInput @fileAttachments
+  logo: Upload @fileAttachment(slot: "LOGO")
+  files: FileAttachmentChangesInput @fileAttachments(slot: "DOCUMENTS")
+  images: FileAttachmentChangesInput @fileAttachments(slot: "IMAGES")
 }
 
 input UpdateTestOwnerInput {
   id: ID!
-  logo: Upload @fileSlot(slot: "LOGO")
-  files: FileAttachmentChangesInput @fileAttachments
+  logo: Upload @fileAttachment(slot: "LOGO")
+  files: FileAttachmentChangesInput @fileAttachments(slot: "DOCUMENTS")
+  images: FileAttachmentChangesInput @fileAttachments(slot: "IMAGES")
 }
 
 type Query {

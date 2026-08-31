@@ -11,7 +11,8 @@ use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
 use Nuwave\Lighthouse\Exceptions\DefinitionException;
 use Programado\Komando\Files\Contracts\StoredFileFactoryContract;
 use Programado\Komando\Files\Events\StoredFileStored;
-use Programado\Komando\Files\GraphQL\Directives\FileSlotDirective;
+use Programado\Komando\Files\GraphQL\Directives\FileAttachmentDirective;
+use Programado\Komando\Files\GraphQL\Directives\FileAttachmentsDirective;
 use Programado\Komando\Files\Models\File;
 use Programado\Komando\Files\Services\FileAttachmentService;
 use Programado\Komando\Tests\Fixtures\TestFile;
@@ -42,6 +43,7 @@ final class FileAttachmentServiceTest extends TestCase
             'attachable_type',
             'attachable_id',
             'slot',
+            'collection',
             'created_at',
             'updated_at',
         ]));
@@ -50,6 +52,21 @@ final class FileAttachmentServiceTest extends TestCase
         $migration->down();
 
         $this->assertFalse(Schema::hasTable('file_attachments'));
+    }
+
+    public function test_the_collection_migration_can_be_rolled_back_and_reapplied(): void
+    {
+        $migration = require dirname(__DIR__, 2).'/database/migrations/2026_08_29_050000_add_collection_to_file_attachments_table.php';
+
+        $this->assertTrue(Schema::hasColumn('file_attachments', 'collection'));
+
+        $migration->down();
+
+        $this->assertFalse(Schema::hasColumn('file_attachments', 'collection'));
+
+        $migration->up();
+
+        $this->assertTrue(Schema::hasColumn('file_attachments', 'collection'));
     }
 
     public function test_the_package_migration_creates_and_removes_the_file_table(): void
@@ -116,6 +133,7 @@ final class FileAttachmentServiceTest extends TestCase
         $committedFile = app(FileAttachmentService::class)->add(
             $owner,
             UploadedFile::fake()->create('committed.pdf'),
+            'DOCUMENTS',
         );
 
         $this->assertSame([$committedFile->getKey()], $storedFileIds->all());
@@ -125,6 +143,7 @@ final class FileAttachmentServiceTest extends TestCase
                 app(FileAttachmentService::class)->add(
                     $owner,
                     UploadedFile::fake()->create('rolled-back.pdf'),
+                    'DOCUMENTS',
                 );
 
                 throw new RuntimeException('rollback');
@@ -142,6 +161,7 @@ final class FileAttachmentServiceTest extends TestCase
         $file = app(FileAttachmentService::class)->add(
             $owner,
             UploadedFile::fake()->create('download.pdf', 12, 'application/pdf'),
+            'DOCUMENTS',
         );
 
         $this->assertSame($file->storageName(), $file->name());
@@ -179,23 +199,26 @@ final class FileAttachmentServiceTest extends TestCase
         Storage::disk('files')->assertMissing($replacement->storageName());
     }
 
-    public function test_unassigned_removal_is_owner_scoped_and_cannot_remove_named_slots(): void
+    public function test_collection_removal_is_scoped_to_owner_slot_and_plural_attachments(): void
     {
         $firstOwner = TestOwner::query()->create(['name' => 'First']);
         $secondOwner = TestOwner::query()->create(['name' => 'Second']);
         $service = app(FileAttachmentService::class);
-        $firstFile = $service->add($firstOwner, UploadedFile::fake()->create('first.pdf'));
-        $foreignFile = $service->add($secondOwner, UploadedFile::fake()->create('foreign.pdf'));
+        $firstFile = $service->add($firstOwner, UploadedFile::fake()->create('first.pdf'), 'DOCUMENTS');
+        $foreignFile = $service->add($secondOwner, UploadedFile::fake()->create('foreign.pdf'), 'DOCUMENTS');
+        $otherCollectionFile = $service->add($firstOwner, UploadedFile::fake()->image('image.png'), 'IMAGES');
         $namedFile = $service->replace($firstOwner, 'LOGO', UploadedFile::fake()->image('logo.png'));
 
         $service->remove($firstOwner, collect([
             $firstFile->getKey(),
             $foreignFile->getKey(),
+            $otherCollectionFile->getKey(),
             $namedFile->getKey(),
-        ]));
+        ]), 'DOCUMENTS');
 
         $this->assertDatabaseMissing('file_attachments', ['file_id' => $firstFile->getKey()]);
         $this->assertDatabaseHas('file_attachments', ['file_id' => $foreignFile->getKey()]);
+        $this->assertDatabaseHas('file_attachments', ['file_id' => $otherCollectionFile->getKey()]);
         $this->assertDatabaseHas('file_attachments', [
             'file_id' => $namedFile->getKey(),
             'slot' => 'LOGO',
@@ -231,11 +254,11 @@ final class FileAttachmentServiceTest extends TestCase
         $service = app(FileAttachmentService::class);
 
         DB::transaction(function () use ($owner, $service): void {
-            $outerFile = $service->add($owner, UploadedFile::fake()->create('outer.pdf'));
+            $outerFile = $service->add($owner, UploadedFile::fake()->create('outer.pdf'), 'DOCUMENTS');
 
             try {
                 DB::transaction(function () use ($owner, $service): void {
-                    $service->add($owner, UploadedFile::fake()->create('inner.pdf'));
+                    $service->add($owner, UploadedFile::fake()->create('inner.pdf'), 'DOCUMENTS');
 
                     throw new RuntimeException('nested rollback');
                 });
@@ -256,20 +279,21 @@ final class FileAttachmentServiceTest extends TestCase
         $firstOwner = TestOwner::query()->create(['name' => 'First']);
         $secondOwner = TestOwner::query()->create(['name' => 'Second']);
         $service = app(FileAttachmentService::class);
-        $file = $service->add($firstOwner, UploadedFile::fake()->create('shared.pdf'));
+        $file = $service->add($firstOwner, UploadedFile::fake()->create('shared.pdf'), 'DOCUMENTS');
         $secondOwner->fileAttachments()->create([
             'file_id' => $file->getKey(),
             'slot' => null,
+            'collection' => 'DOCUMENTS',
         ]);
 
         $this->assertFalse($file->delete());
 
-        $service->remove($firstOwner, collect([$file->getKey()]));
+        $service->remove($firstOwner, collect([$file->getKey()]), 'DOCUMENTS');
 
         $this->assertDatabaseHas('files', ['id' => $file->getKey()]);
         Storage::disk('files')->assertExists($file->storageName());
 
-        $service->remove($secondOwner, collect([$file->getKey()]));
+        $service->remove($secondOwner, collect([$file->getKey()]), 'DOCUMENTS');
 
         $this->assertDatabaseMissing('files', ['id' => $file->getKey()]);
         Storage::disk('files')->assertMissing($file->storageName());
@@ -281,6 +305,7 @@ final class FileAttachmentServiceTest extends TestCase
         $file = app(FileAttachmentService::class)->add(
             $owner,
             UploadedFile::fake()->create('committed.pdf'),
+            'DOCUMENTS',
         );
 
         try {
@@ -307,7 +332,7 @@ final class FileAttachmentServiceTest extends TestCase
         );
 
         try {
-            app(FileAttachmentService::class)->add($owner, $upload);
+            app(FileAttachmentService::class)->add($owner, $upload, 'DOCUMENTS');
             $this->fail('An invalid upload should throw an exception.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('partially uploaded', $exception->getMessage());
@@ -324,6 +349,7 @@ final class FileAttachmentServiceTest extends TestCase
         $file = app(FileAttachmentService::class)->add(
             $owner,
             UploadedFile::fake()->create('temporary.pdf'),
+            'DOCUMENTS',
         );
         $owner->fileAttachments()->delete();
 
@@ -339,7 +365,8 @@ final class FileAttachmentServiceTest extends TestCase
         $namespaces = app('events')->dispatch(new RegisterDirectiveNamespaces);
 
         $this->assertContains('Programado\\Komando\\Files\\GraphQL\\Directives', $namespaces);
-        $this->assertStringContainsString('slot: FileSlot!', FileSlotDirective::definition());
+        $this->assertStringContainsString('slot: FileSlot!', FileAttachmentDirective::definition());
+        $this->assertStringContainsString('slot: FileSlot!', FileAttachmentsDirective::definition());
     }
 
     public function test_an_invalid_graphql_slot_type_is_rejected(): void
@@ -349,6 +376,6 @@ final class FileAttachmentServiceTest extends TestCase
         $this->expectException(DefinitionException::class);
         $this->expectExceptionMessage('must be a valid GraphQL type name');
 
-        FileSlotDirective::definition();
+        FileAttachmentDirective::definition();
     }
 }

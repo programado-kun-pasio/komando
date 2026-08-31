@@ -27,6 +27,8 @@ final class FileAttachmentGraphQLTest extends TestCase
         $app['config']->set('lighthouse.schema_path', dirname(__DIR__).'/Fixtures/file-attachments.graphql');
         $app['config']->set('lighthouse.debug', DebugFlag::INCLUDE_DEBUG_MESSAGE);
         $app['config']->set('lighthouse.namespaces.scalars', ['Nuwave\\Lighthouse\\Schema\\Types\\Scalars']);
+        $app['config']->set('lighthouse.schema_cache.enable', false);
+        $app['config']->set('lighthouse.query_cache.enable', false);
     }
 
     protected function setUp(): void
@@ -79,6 +81,7 @@ final class FileAttachmentGraphQLTest extends TestCase
 
         $this->assertDatabaseCount('file_attachments', 3);
         $this->assertDatabaseHas('file_attachments', ['slot' => 'LOGO']);
+        $this->assertDatabaseHas('file_attachments', ['collection' => 'DOCUMENTS']);
         $this->assertDatabaseHas('files', [
             'name' => 'contract',
             'mime_type' => 'application/pdf',
@@ -87,6 +90,20 @@ final class FileAttachmentGraphQLTest extends TestCase
         ]);
         $this->assertDatabaseCount('files', 3);
         $this->assertCount(3, Storage::disk('files')->allFiles());
+
+        $filtered = $this->graphQL(<<<'GRAPHQL'
+            query FilterFiles($id: ID!) {
+              testOwner(id: $id) {
+                files(name: "brief") { name }
+              }
+            }
+            GRAPHQL, [
+            'id' => $response->json('data.createTestOwner.id'),
+        ]);
+
+        $filtered->assertJsonMissingPath('errors')
+            ->assertJsonCount(1, 'data.testOwner.files')
+            ->assertJsonPath('data.testOwner.files.0.name', 'brief');
     }
 
     public function test_graphql_can_clear_a_slot_and_only_remove_the_requested_unassigned_file(): void

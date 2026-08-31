@@ -33,7 +33,7 @@ trait HasFileAttachments
             strval(config('komando.files.attachment_table', 'file_attachments')),
             relatedPivotKey: 'file_id',
         )
-            ->withPivot(['id', 'slot'])
+            ->withPivot(['id', 'slot', 'collection'])
             ->withTimestamps();
     }
 
