@@ -23,9 +23,14 @@ return new class extends Migration
             $table->foreignIdFor($fileModel, 'file_id')->constrained()->cascadeOnDelete();
             $table->morphs('attachable');
             $table->string('slot')->nullable();
+            $table->string('collection')->nullable();
             $table->timestamps();
 
             $table->unique(['attachable_type', 'attachable_id', 'slot'], 'file_attachments_slot_unique');
+            $table->index(
+                ['attachable_type', 'attachable_id', 'collection'],
+                'file_attachments_collection_index',
+            );
         });
     }
 

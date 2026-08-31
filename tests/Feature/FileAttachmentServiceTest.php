@@ -54,21 +54,6 @@ final class FileAttachmentServiceTest extends TestCase
         $this->assertFalse(Schema::hasTable('file_attachments'));
     }
 
-    public function test_the_collection_migration_can_be_rolled_back_and_reapplied(): void
-    {
-        $migration = require dirname(__DIR__, 2).'/database/migrations/2026_08_29_050000_add_collection_to_file_attachments_table.php';
-
-        $this->assertTrue(Schema::hasColumn('file_attachments', 'collection'));
-
-        $migration->down();
-
-        $this->assertFalse(Schema::hasColumn('file_attachments', 'collection'));
-
-        $migration->up();
-
-        $this->assertTrue(Schema::hasColumn('file_attachments', 'collection'));
-    }
-
     public function test_the_package_migration_creates_and_removes_the_file_table(): void
     {
         $this->assertTrue(Schema::hasTable('files'));
