@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Nuwave\Lighthouse\Events\RegisterDirectiveNamespaces;
 use Programado\Komando\Console\Commands\SyncDatabaseCommand;
-use Programado\Komando\Console\Commands\UpdateGraphQLDevSchema;
 use Programado\Komando\Files\Contracts\StoredFileFactoryContract;
 use Programado\Komando\Files\Http\Controllers\DownloadFileController;
 use Programado\Komando\Files\Services\DefaultStoredFileFactory;
@@ -23,7 +22,6 @@ final class KomandoServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../../config/komando.php', 'komando');
         $this->commands(SyncDatabaseCommand::class);
-        $this->commands(UpdateGraphQLDevSchema::class);
         $this->app->singleton(RollbackCleanupRegistry::class);
         $this->app->bind(StoredFileFactoryContract::class, function ($app): StoredFileFactoryContract {
             $factoryClass = $app['config']->get('komando.files.factory', DefaultStoredFileFactory::class);
