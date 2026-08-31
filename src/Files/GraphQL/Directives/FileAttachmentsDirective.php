@@ -3,9 +3,13 @@
 namespace Programado\Komando\Files\GraphQL\Directives;
 
 use BackedEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use LastDragon_ru\LaraASP\GraphQL\Builder\BuilderInfo;
+use LastDragon_ru\LaraASP\GraphQL\Builder\Contracts\BuilderInfoProvider;
+use LastDragon_ru\LaraASP\GraphQL\Builder\Contracts\TypeSource;
 use Nuwave\Lighthouse\Exceptions\DefinitionException;
 use Nuwave\Lighthouse\Execution\Arguments\ArgumentSet;
 use Nuwave\Lighthouse\Execution\ResolveInfo;
@@ -17,7 +21,7 @@ use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 use Programado\Komando\Files\Contracts\HasFileAttachmentsContract;
 use Programado\Komando\Files\Services\FileAttachmentService;
 
-final class FileAttachmentsDirective extends BaseDirective implements ArgResolver, FieldResolver
+final class FileAttachmentsDirective extends BaseDirective implements ArgResolver, BuilderInfoProvider, FieldResolver
 {
     public function __construct(
         private readonly FileAttachmentService $fileAttachmentService,
@@ -72,14 +76,20 @@ GRAPHQL;
         $slot = $this->slot();
 
         return function (mixed $root, array $args, GraphQLContext $context, ResolveInfo $resolveInfo) use ($slot): Collection {
-            $query = $this->owner($root)->files();
+            $relation = $this->owner($root)->files();
 
-            $query->wherePivot('collection', $slot instanceof BackedEnum ? $slot->value : $slot);
+            $relation->wherePivot('collection', $slot instanceof BackedEnum ? $slot->value : $slot);
+            $query = $relation->getQuery()->select($relation->getRelated()->qualifyColumn('*'));
 
             return $resolveInfo
                 ->enhanceBuilder($query, [], $root, $args, $context, $resolveInfo)
                 ->get();
         };
+    }
+
+    public function getBuilderInfo(TypeSource $source): ?BuilderInfo
+    {
+        return BuilderInfo::create(Builder::class);
     }
 
     private function slot(): BackedEnum|string

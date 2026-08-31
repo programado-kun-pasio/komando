@@ -12,7 +12,7 @@ type TestOwner {
   id: ID!
   name: String!
   logo: TestFile @fileAttachment(slot: "LOGO")
-  files(name: String @eq): [TestFile!]! @fileAttachments(slot: "DOCUMENTS")
+  files(where: _ @searchBy, order: _ @sortBy): [TestFile!]! @fileAttachments(slot: "DOCUMENTS")
   images: [TestFile!]! @fileAttachments(slot: "IMAGES")
 }
 

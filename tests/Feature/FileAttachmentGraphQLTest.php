@@ -5,6 +5,8 @@ namespace Programado\Komando\Tests\Feature;
 use GraphQL\Error\DebugFlag;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use LastDragon_ru\LaraASP\Core\PackageProvider as LaraAspCoreServiceProvider;
+use LastDragon_ru\LaraASP\GraphQL\PackageProvider as LaraAspGraphQLServiceProvider;
 use Nuwave\Lighthouse\LighthouseServiceProvider;
 use Nuwave\Lighthouse\Testing\MakesGraphQLRequests;
 use Programado\Komando\Providers\KomandoServiceProvider;
@@ -16,7 +18,12 @@ final class FileAttachmentGraphQLTest extends TestCase
 
     protected function getPackageProviders($app): array
     {
-        return [LighthouseServiceProvider::class, KomandoServiceProvider::class];
+        return [
+            LighthouseServiceProvider::class,
+            LaraAspCoreServiceProvider::class,
+            LaraAspGraphQLServiceProvider::class,
+            KomandoServiceProvider::class,
+        ];
     }
 
     protected function defineEnvironment($app): void
@@ -94,7 +101,10 @@ final class FileAttachmentGraphQLTest extends TestCase
         $filtered = $this->graphQL(<<<'GRAPHQL'
             query FilterFiles($id: ID!) {
               testOwner(id: $id) {
-                files(name: "brief") { name }
+                files(
+                  where: { field: { name: { contains: "r" } } }
+                  order: [{ field: { name: Asc } }]
+                ) { name }
               }
             }
             GRAPHQL, [
@@ -102,8 +112,9 @@ final class FileAttachmentGraphQLTest extends TestCase
         ]);
 
         $filtered->assertJsonMissingPath('errors')
-            ->assertJsonCount(1, 'data.testOwner.files')
-            ->assertJsonPath('data.testOwner.files.0.name', 'brief');
+            ->assertJsonCount(2, 'data.testOwner.files')
+            ->assertJsonPath('data.testOwner.files.0.name', 'brief')
+            ->assertJsonPath('data.testOwner.files.1.name', 'contract');
     }
 
     public function test_graphql_can_clear_a_slot_and_only_remove_the_requested_unassigned_file(): void
