@@ -34,7 +34,7 @@
         }
     },
     "scripts": {
-        "lint": "pint --test src/Files tests src/Providers/KomandoServiceProvider.php config/komando.php",
+        "lint": "pint --test src/ExceptionReporting src/Files tests src/Providers/KomandoServiceProvider.php config/komando.php",
         "test": "phpunit"
     },
     "authors": [

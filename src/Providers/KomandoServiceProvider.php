@@ -35,6 +35,8 @@ final class KomandoServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->loadViewsFrom(__DIR__.'/../../resources/views', 'komando');
+
         if (config('komando.files.enabled', false)) {
             $this->bootFiles();
         }

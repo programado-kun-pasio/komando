@@ -4,6 +4,16 @@ use Programado\Komando\Files\Models\FileAttachment;
 use Programado\Komando\Files\Services\DefaultStoredFileFactory;
 
 return [
+    'exception_reports' => [
+        'enabled' => false,
+        'environments' => ['production'],
+        'recipients' => [],
+        'queue' => 'alerts',
+        'throttle_minutes' => 60 * 3,
+        'max_message_length' => 5000,
+        'max_stack_trace_length' => 20000,
+    ],
+
     'files' => [
         'enabled' => false,
         'migrations' => true,

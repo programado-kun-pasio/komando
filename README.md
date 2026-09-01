@@ -1,5 +1,29 @@
 # Komando
 
+## Exception reports
+
+Komando can queue throttled exception report mails without serializing the request body. The module is disabled by
+default. Enable and configure it in `config/komando.php`, then forward Laravel's report callback to the reporter:
+
+```php
+use Illuminate\Foundation\Configuration\Exceptions;
+use Programado\Komando\ExceptionReporting\Services\ExceptionMailReporter;
+
+->withExceptions(function (Exceptions $exceptions) {
+    $exceptions->report(function (Throwable $exception) {
+        app(ExceptionMailReporter::class)->report(
+            $exception,
+            app()->runningInConsole() ? null : request(),
+        );
+    });
+})
+```
+
+The reporter groups equivalent failures by exception class, normalized message and application location. It stores only
+the request method, URL without query parameters, route, authenticated user ID and request ID. Delivery failures are
+wrapped in a non-reportable exception so a broken mail transport cannot recursively create more report jobs. Configure
+and run a worker for the queue named by `komando.exception_reports.queue`.
+
 ## GraphQL file attachments
 
 Komando provides reusable named singular and plural file attachments for Eloquent models and Lighthouse mutations.
