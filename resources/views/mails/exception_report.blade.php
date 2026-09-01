@@ -6,7 +6,7 @@
 - **Ort:** {{ $report['location'] }}
 - **Zeitpunkt:** {{ $report['occurred_at'] }}
 - **Umgebung:** {{ $report['environment'] }}
-- **Fingerprint:** {{ $report['fingerprint'] }}
+- **Fingerprint:** <span style="overflow-wrap: anywhere; word-break: break-all;">{{ $report['fingerprint'] }}</span>
 
 @if ($report['request'] !== [])
 ## Request
@@ -20,7 +20,7 @@
 
 ## Stack trace
 
-<pre>
+<pre style="box-sizing: border-box; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; word-wrap: break-word; word-break: break-word;">
 {{ $report['stack_trace'] }}
 </pre>
 </x-mail::message>
