@@ -5,11 +5,13 @@ use Programado\Komando\Files\Services\DefaultStoredFileFactory;
 
 return [
     'exception_reports' => [
-        'enabled' => false,
+        'enabled' => (bool) env('KOMANDO_EXCEPTION_REPORTS_ENABLED', false),
         'environments' => ['production'],
-        'recipients' => [],
-        'queue' => 'alerts',
-        'throttle_minutes' => 60 * 3,
+        'recipients' => explode(',', (string) env('KOMANDO_EXCEPTION_REPORT_RECIPIENTS', ''))
+                |> (fn ($x) => array_map('trim', $x))
+                |> array_filter(...),
+        'queue' => env('KOMANDO_EXCEPTION_REPORT_QUEUE', 'default'),
+        'throttle_minutes' => (int) env('KOMANDO_EXCEPTION_REPORT_THROTTLE_MINUTES', 60 * 3),
         'max_message_length' => 5000,
         'max_stack_trace_length' => 20000,
     ],

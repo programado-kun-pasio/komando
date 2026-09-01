@@ -24,6 +24,7 @@ final class ExceptionMailReporterTest extends TestCase
         config()->set('cache.default', 'array');
         config()->set('komando.exception_reports.enabled', true);
         config()->set('komando.exception_reports.recipients', ['maintenance@example.com']);
+        config()->set('komando.exception_reports.queue', 'alerts');
         Cache::flush();
         Queue::fake();
     }
@@ -121,6 +122,25 @@ final class ExceptionMailReporterTest extends TestCase
 
         $this->assertStringContainsString('app/Services/Example.php:42', $html);
         $this->assertStringContainsString('test-fingerprint', $html);
+    }
+
+    public function test_the_mail_wraps_long_exception_content(): void
+    {
+        $html = (new ExceptionReportMail([
+            'class' => 'RuntimeException',
+            'message' => 'Something failed',
+            'location' => 'app/Services/Example.php:42',
+            'stack_trace' => str_repeat('unbreakable-stack-trace-token', 50),
+            'fingerprint' => str_repeat('a', 64),
+            'occurred_at' => '2026-09-01T12:00:00+00:00',
+            'environment' => 'production',
+            'request' => [],
+        ]))->render();
+
+        $this->assertStringContainsString('white-space: pre-wrap', $html);
+        $this->assertStringContainsString('overflow-wrap: anywhere', $html);
+        $this->assertStringContainsString('word-break: break-word', $html);
+        $this->assertStringContainsString('word-break: break-all', $html);
     }
 
     private function exceptionForRecord(int $recordId): RuntimeException

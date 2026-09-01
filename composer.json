@@ -12,7 +12,7 @@
     "type": "laravel-package",
     "license": "MIT",
     "require": {
-        "php": ">=8.4",
+        "php": ">=8.5",
         "laravel/framework": "^13.0",
         "lastdragon-ru/lara-asp-graphql": "^11.2",
         "nuwave/lighthouse": "^6.66",
