@@ -1,5 +1,15 @@
 # Komando
 
+## GraphQL scalars
+
+`Programado\Komando\GraphQL\Scalars\DateTimeTz` extends Lighthouse's `DateTimeTz` scalar. It accepts ISO 8601
+timestamps emitted by Temporal with up to nine fractional digits, truncates them to Carbon's microsecond precision and
+normalizes parsed values to UTC.
+
+```graphql
+scalar DateTimeTz @scalar(class: "Programado\\Komando\\GraphQL\\Scalars\\DateTimeTz")
+```
+
 ## Exception reports
 
 Komando can queue throttled exception report mails without serializing the request body. The module is disabled by
