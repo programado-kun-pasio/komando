@@ -1,4 +1,5 @@
 <?php declare(strict_types=1);
+
 use Programado\Komando\Files\Models\File;
 use Programado\Komando\Files\Models\FileAttachment;
 use Programado\Komando\Files\Services\DefaultStoredFileFactory;
