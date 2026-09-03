@@ -157,6 +157,28 @@ final class FileAttachmentServiceTest extends TestCase
             ->assertDownload("{$file->storageName()}.pdf");
     }
 
+    public function test_local_files_support_byte_range_downloads(): void
+    {
+        $contents = '0123456789';
+        $file = File::query()->create([
+            'name' => 'video',
+            'mime_type' => 'video/mp4',
+            'extension' => 'mp4',
+            'size' => strlen($contents),
+            'metadata' => [],
+        ]);
+
+        Storage::disk('files')->put($file->storageName(), $contents);
+
+        $this->withHeader('Range', 'bytes=2-5')
+            ->get($file->url())
+            ->assertStatus(206)
+            ->assertHeader('Accept-Ranges', 'bytes')
+            ->assertHeader('Content-Range', 'bytes 2-5/10')
+            ->assertHeader('Content-Length', '4')
+            ->assertHeader('Content-Type', 'video/mp4');
+    }
+
     public function test_it_creates_replaces_and_removes_a_named_slot(): void
     {
         $owner = TestOwner::query()->create(['name' => 'Acme']);

@@ -6,11 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use LogicException;
 use Programado\Komando\Files\Contracts\StoredFileContract;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class DownloadFileController
 {
-    public function __invoke(string $file): StreamedResponse
+    public function __invoke(string $file): BinaryFileResponse|StreamedResponse
     {
         $modelClass = config('komando.files.file_model');
 
@@ -26,10 +27,21 @@ final class DownloadFileController
         $downloadName = $storedFile->storageName().($extension === '' ? '' : ".{$extension}");
         $mimeType = strval($storedFile->getAttribute('mime_type'));
 
-        return Storage::disk(strval(config('komando.files.disk', 'files')))->download(
-            $storedFile->storageName(),
-            $downloadName,
-            $mimeType === '' ? [] : ['Content-Type' => $mimeType],
-        );
+        $diskName = strval(config('komando.files.disk', 'files'));
+        $disk = Storage::disk($diskName);
+        $headers = $mimeType === '' ? [] : ['Content-Type' => $mimeType];
+
+        return match (config("filesystems.disks.{$diskName}.driver")) {
+            'local' => response()->download(
+                $disk->path($storedFile->storageName()),
+                $downloadName,
+                $headers,
+            ),
+            default => $disk->download(
+                $storedFile->storageName(),
+                $downloadName,
+                $headers,
+            ),
+        };
     }
 }
